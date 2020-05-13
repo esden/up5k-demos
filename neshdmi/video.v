@@ -67,12 +67,12 @@ wire sync_frame = (old_count_v == 9'd511) && (count_v == 9'd0);
 
 assign doubler_sync = sync_frame;
 
-always @(posedge clkv) begin
-  h <= (hend || (mode ? sync_frame : doubler_sync)) ? 10'd0 : h + 10'd1;
-  if(mode ? sync_frame : doubler_sync) v <= 0;
-    else if (hend) v <= vend ? 10'd0 : v + 10'd1;
+always @(posedge clk) begin
+	h <= (hend || (mode ? sync_frame : doubler_sync)) ? 10'd0 : h + 10'd1;
+	if(mode ? sync_frame : doubler_sync) v <= 0;
+	else if (hend) v <= vend ? 10'd0 : v + 10'd1;
 
-  old_count_v <= count_v;
+	old_count_v <= count_v;
 end
 
 wire [14:0] pixel_v = (!hpicture || !vpicture) ? 15'd0 : mode ? pixel : doubler_pixel;
