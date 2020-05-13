@@ -7,7 +7,7 @@
 module NES_ice40 (  
 	// clock input
   input clock_12,
-  output LED0, LED1,
+  //output LED0, LED1,
   
   // VGA over HDMI
   output         VGA_CK,
@@ -20,7 +20,8 @@ module NES_ice40 (
                                                                                                     
 
   // audio
-  output           AUDIO_O,
+  output         AUDIOL_O,
+  output         AUDIOR_O,
   
   // joystick
   output joy_strobe, joy_clock,
@@ -83,8 +84,8 @@ SB_IO #(
   );  
 
   assign VGA_CK = clock;  
-  assign LED0 = !memory_addr[0];
-  assign LED1 = load_done;
+  //assign LED0 = !memory_addr[0];
+  //assign LED1 = load_done;
   //assign leds = memory_din_cpu;
   
   wire sys_reset = !clock_locked;
@@ -223,19 +224,20 @@ video video (
 	.VGA_G(VGA_G),
 	.VGA_B(VGA_B),
 
-        .active(VGA_DE)
+	.active(VGA_DE)
 	
 );
 
 wire audio;
-assign AUDIO_O = audio;
+assign AUDIOL_O = audio;
+assign AUDIOR_O = audio;
 
 sigma_delta_dac sigma_delta_dac (
 	.DACout(audio),
 	.DACin(sample[15:8]),
 	.CLK(clock),
 	.RESET(reset_nes),
-  .CEN(run_nes)
+	.CEN(run_nes)
 );
 
 
