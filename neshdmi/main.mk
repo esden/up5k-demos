@@ -44,8 +44,11 @@ sudo-prog: $(PROJ).bin
 	@echo 'Executing prog as root!!!'
 	sudo iceprog $<
 
-clean:
+clean: $(ADD_CLEAN_SUBDIR:=.clean)
 	rm -f $(PROJ).blif $(PROJ).asc $(PROJ).rpt $(PROJ).bin $(PROJ).json $(PROJ).log $(ADD_CLEAN)
+
+%.clean:
+	$(MAKE) -C $* clean
 
 .SECONDARY:
 .PHONY: all prog clean
