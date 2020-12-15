@@ -25,7 +25,7 @@ module NES_ice40 (
   
   // joystick
   output joy_strobe, joy_clock,
-  input joy_data,
+  input [3:0] joy_data,
   
   // flashmem
   output flash_sck,
@@ -166,25 +166,148 @@ SB_IO #(
   
   wire [31:0] dbgadr;
   wire [1:0] dbgctr;
+
+  // We have to store the buttons for each joystick independently and then simulate being a Nintendo Four Score.
+  //save all button data
+  reg [7:0] joy0 = 0;
+  reg [7:0] joy1 = 0;
+  reg [7:0] joy2 = 0;
+  reg [7:0] joy3 = 0;
+  reg [5:0] joy_state = 0;
+  // Use a clock cycle of 6 microseconds or about 128 21.375Mhz clock cycles.
+  reg [6:0] joy_state_counter = 7'b111_1111;
+  always @(posedge clock) begin
+    joy_state_counter <= joy_state_counter - 1;
+    if (joy_state_counter == 0) begin
+      if(joy_state == 5'd17) begin
+        joy_state <= 0;
+      end else begin
+        joy_state <= joy_state + 1;
+      end
+      case(joy_state)
+        5'd3: begin
+          joy0[0] <= joy_data[0];
+          joy1[0] <= joy_data[1];
+          joy2[0] <= joy_data[2];
+          joy3[0] <= joy_data[3];
+        end
+        5'd5: begin
+          joy0[1] <= joy_data[0];
+          joy1[1] <= joy_data[1];
+          joy2[1] <= joy_data[2];
+          joy3[1] <= joy_data[3];
+        end
+        5'd7: begin
+          joy0[2] <= joy_data[0];
+          joy1[2] <= joy_data[1];
+          joy2[2] <= joy_data[2];
+          joy3[2] <= joy_data[3];
+        end
+        5'd9: begin
+          joy0[3] <= joy_data[0];
+          joy1[3] <= joy_data[1];
+          joy2[3] <= joy_data[2];
+          joy3[3] <= joy_data[3];
+        end
+        5'd11: begin
+          joy0[4] <= joy_data[0];
+          joy1[4] <= joy_data[1];
+          joy2[4] <= joy_data[2];
+          joy3[4] <= joy_data[3];
+        end
+        5'd13: begin
+          joy0[5] <= joy_data[0];
+          joy1[5] <= joy_data[1];
+          joy2[5] <= joy_data[2];
+          joy3[5] <= joy_data[3];
+        end
+        5'd15: begin
+          joy0[6] <= joy_data[0];
+          joy1[6] <= joy_data[1];
+          joy2[6] <= joy_data[2];
+          joy3[6] <= joy_data[3];
+        end
+        5'd17: begin
+          joy0[7] <= joy_data[0];
+          joy1[7] <= joy_data[1];
+          joy2[7] <= joy_data[2];
+          joy3[7] <= joy_data[3];
+        end
+      endcase
+    end
+  end
+
+  // latch/strobe and clock for all states.
+  always @(*) begin
+    case(joy_state)
+      5'd0:    {joy_strobe, joy_clock} = 2'b00;
+      5'd1:    {joy_strobe, joy_clock} = 2'b10;
+      5'd2:    {joy_strobe, joy_clock} = 2'b10;
+      // Read A.
+      5'd3:    {joy_strobe, joy_clock} = 2'b00;
+
+      5'd4:    {joy_strobe, joy_clock} = 2'b01;
+      // Read B.
+      5'd5:    {joy_strobe, joy_clock} = 2'b00;
+
+      5'd6:    {joy_strobe, joy_clock} = 2'b01;
+      // Read Select.
+      5'd7:    {joy_strobe, joy_clock} = 2'b00;
+
+      5'd8:    {joy_strobe, joy_clock} = 2'b01;
+      // Read Start.
+      5'd9:    {joy_strobe, joy_clock} = 2'b00;
+
+      5'd10:   {joy_strobe, joy_clock} = 2'b01;
+      // Read Up.
+      5'd11:   {joy_strobe, joy_clock} = 2'b00;
+
+      5'd12:   {joy_strobe, joy_clock} = 2'b01;
+      // Read Down.
+      5'd13:   {joy_strobe, joy_clock} = 2'b00;
+
+      5'd14:   {joy_strobe, joy_clock} = 2'b01;
+      // Read Left.
+      5'd15:   {joy_strobe, joy_clock} = 2'b00;
+
+      5'd16:   {joy_strobe, joy_clock} = 2'b01;
+      // Read Right.
+      5'd17:   {joy_strobe, joy_clock} = 2'b00;
+      default: {joy_strobe, joy_clock} = 2'b00;
+    endcase
+  end
+
+  // Simulated Nintendo Four Score controller sent to nes core.
+  wire sim_strobe;
+  wire [1:0] sim_clock;
+  reg [1:0] last_sim_clock = 0;
   
-  reg joy_data_sync = 0;
-  reg last_joypad_clock;
+  reg [23:0] sim_data_bits02 = 24'h0;
+  reg [23:0] sim_data_bits13 = 24'h0;
 	
   always @(posedge clock) begin
-    if (joy_strobe) begin
-      joy_data_sync <= joy_data;
+    if (sim_strobe) begin
+      // The nes core expects the joystick data to be inverted from the raw values.
+      // For four player, we push 2 joysticks and a special id through each of the original joysticks.
+      // This makes it work for both 2 player and 4 player.
+      // If all buttons are pressed(controller unplugged), send 0 instead of inverting.
+      sim_data_bits02 <= {8'b0000_1000, (joy2 == 8'b0) ? 8'b0 : ~joy2, (joy0 == 8'b0) ? 8'b0 : ~joy0};
+      sim_data_bits13 <= {8'b0000_0100, (joy3 == 8'b0) ? 8'b0 : ~joy3, (joy1 == 8'b0) ? 8'b0 : ~joy1};
     end
 
-    if (!joy_clock && last_joypad_clock) begin
-      joy_data_sync <= joy_data;
+    if (!sim_clock[0] && last_sim_clock[0]) begin
+      sim_data_bits02 <= {1'b1, sim_data_bits02[23:1]};
     end
-    last_joypad_clock <= joy_clock;
+    if (!sim_clock[1] && last_sim_clock[1]) begin
+      sim_data_bits13 <= {1'b1, sim_data_bits13[23:1]};
+    end
+    last_sim_clock <= sim_clock;
   end
 
   NES nes(clock, reset_nes, run_nes_g,
           mapper_flags,
           sample, color,
-          joy_strobe, joy_clock, {3'b0,!joy_data_sync},
+          sim_strobe, sim_clock, {2'b0, sim_data_bits13[0], sim_data_bits02[0]},
           5'b11111,  // enable all channels
           memory_addr,
           memory_read_cpu, memory_din_cpu,
