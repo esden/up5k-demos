@@ -291,8 +291,8 @@ SB_IO #(
       // For four player, we push 2 joysticks and a special id through each of the original joysticks.
       // This makes it work for both 2 player and 4 player.
       // If all buttons are pressed(controller unplugged), send 0 instead of inverting.
-      sim_data_bits02 <= {8'b0000_1000, (joy2 == 0) ? 0 : ~joy2, (joy0 == 0) ? 0 : ~joy0};
-      sim_data_bits13 <= {8'b0000_0100, (joy3 == 0) ? 0 : ~joy3, (joy1 == 0) ? 0 : ~joy1};
+      sim_data_bits02 <= {8'b0000_1000, (joy2 == 8'b0) ? 8'b0 : ~joy2, (joy0 == 8'b0) ? 8'b0 : ~joy0};
+      sim_data_bits13 <= {8'b0000_0100, (joy3 == 8'b0) ? 8'b0 : ~joy3, (joy1 == 8'b0) ? 8'b0 : ~joy1};
     end
 
     if (!sim_clock[0] && last_sim_clock[0]) begin
